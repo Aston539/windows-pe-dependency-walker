@@ -1,7 +1,7 @@
 Basic windows PE file dependency walker.
 
 
-        Output from recursion depth of 1:
+Output from recursion depth of 1:
         
         ```
         asm-calculator.exe:
@@ -16,8 +16,8 @@ Basic windows PE file dependency walker.
                         SetConsoleCursorPosition
                         ReadConsoleA
         ```
-        
-        Output from recursion depth of 2:
+
+Output from recursion depth of 2:
         
         ```
         asm-calculator.exe:
