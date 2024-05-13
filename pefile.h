@@ -51,7 +51,8 @@ PeIsDependencyWalked(
 
 BOOL
 PeWalkFileDependencies(
-	_Inout_ PPE_FILE PEFile
+	_Inout_ PPE_FILE PEFile,
+	_In_ LONG Depth
 );
 
 BOOL

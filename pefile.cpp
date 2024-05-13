@@ -13,22 +13,14 @@ PeOpenFile(
 	
 	if ( PEFile->FileName == NULL )
 	{
-		//PCHAR ShortNameBuffer = ( PCHAR )malloc( MAX_PATH );
-		//
-		//GetShortPathNameA(
-		//	PEFile->FilePath,
-		//	ShortNameBuffer,
-		//	MAX_PATH
-		//);
+		PEFile->FileName = ( LPSTR )strstr( PEFile->FilePath, "\\" );
 
-		PEFile->FileName = ( LPSTR )strstr( Path, "\\" );
 		while ( ( LPSTR )strstr( PEFile->FileName + 1, "\\" ) )
 		{
 			PEFile->FileName = ( LPSTR )strstr( PEFile->FileName + 1, "\\" );
 		}
 
 		PEFile->FileName++;
-		//PEFile->FileName = ShortNameBuffer;
 	}
 
 	//
@@ -138,6 +130,8 @@ PeOpenFile(
 		PEFile->FileData.resize( NtHeaders->OptionalHeader.SizeOfImage );
 
 		memcpy( PEFile->FileData.data( ), ( PVOID )LibHandle, PEFile->FileData.size( ) );
+
+		FreeLibrary( LibHandle );
 	}
 
 	//
@@ -185,7 +179,8 @@ PeIsDependencyWalked(
 
 BOOL
 PeWalkFileDependencies(
-	_Inout_ PPE_FILE PEFile
+	_Inout_ PPE_FILE PEFile,
+	_In_ LONG Depth
 )
 {
 	UINT_PTR Base = ( UINT_PTR )PEFile->FileData.data( );
@@ -218,12 +213,6 @@ PeWalkFileDependencies(
 
 		PPE_FILE DepPEFile = NULL;
 		BOOL WasWalked = PeIsDependencyWalked( FileName, PEFile, &DepPEFile );
-
-		//__debugbreak( );
-		//
-		//printf( "=== %s - %i ===\n", FileName, WasWalked );
-		//
-		//__debugbreak( );
 		
 		if ( WasWalked == FALSE || !DepPEFile )
 		{
@@ -242,7 +231,7 @@ PeWalkFileDependencies(
 			GetFullPathNameA(
 				FileName,
 				MAX_PATH,
-				DepPEFile->FilePath,
+				 DepPEFile->FilePath,
 				&DepPEFile->FileName
 			);
 
@@ -255,47 +244,50 @@ PeWalkFileDependencies(
 					return FALSE;
 				}
 			}
+		}
 
-			if ( PEFile->Parent == NULL || PEFile->Parent->Parent == NULL )
+		if ( Depth > 0 )
+		{
+			PIMAGE_THUNK_DATA LookupTable = ( PIMAGE_THUNK_DATA )( Base + CurrentDescriptor->OriginalFirstThunk );
+
+			for ( PIMAGE_THUNK_DATA  CurrentLT = LookupTable;
+				CurrentLT->u1.AddressOfData;
+				CurrentLT++ )
+			{
+				if ( IMAGE_SNAP_BY_ORDINAL( CurrentLT->u1.Ordinal ) )
+				{
+					continue;
+				}
+
+				PIMAGE_IMPORT_BY_NAME ImportName = ( PIMAGE_IMPORT_BY_NAME )( Base + CurrentLT->u1.AddressOfData );
+
+				if ( !ImportName || !ImportName->Name || !ImportName->Name[ NULL ] )
+				{
+					continue;
+				}
+
+				//
+				// allocate empty dependency in vector
+				//
+				PEFile->Dependencies.push_back( { } );
+
+				PPE_DEPENDENCY PeDependency = &PEFile->Dependencies.back( );
+				PeDependency->File = DepPEFile;
+				strcpy_s( PeDependency->Name, ImportName->Name );
+			}
+
+			if ( WasWalked == FALSE && PEFile->Parent == NULL )
 			{
 				//
 				// recursively walk new files dependencies
 				//
-				if ( !PeWalkFileDependencies( DepPEFile ) )
+				if ( !PeWalkFileDependencies( DepPEFile, Depth - 1 ) )
 				{
 					PeCloseFile( DepPEFile );
 
 					return FALSE;
 				}
 			}
-		}
-
-		PIMAGE_THUNK_DATA LookupTable = ( PIMAGE_THUNK_DATA )( Base + CurrentDescriptor->OriginalFirstThunk );
-		
-		for ( PIMAGE_THUNK_DATA  CurrentLT = LookupTable;
-								 CurrentLT->u1.AddressOfData;
-								 CurrentLT++ )
-		{
-			if ( IMAGE_SNAP_BY_ORDINAL( CurrentLT->u1.Ordinal ) )
-			{
-				continue;
-			}
-		
-			PIMAGE_IMPORT_BY_NAME ImportName = ( PIMAGE_IMPORT_BY_NAME )( Base + CurrentLT->u1.AddressOfData );
-		
-			if ( !ImportName || !ImportName->Name || !ImportName->Name[ NULL ] )
-			{
-				continue;
-			}
-		
-			//
-			// allocate empty dependency in vector
-			//
-			PEFile->Dependencies.push_back( { } );
-		
-			PPE_DEPENDENCY PeDependency = &PEFile->Dependencies.back( );
-			               PeDependency->File = DepPEFile;
-			strcpy_s(      PeDependency->Name, ImportName->Name );
 		}
 	}
 
