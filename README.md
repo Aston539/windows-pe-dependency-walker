@@ -2,6 +2,7 @@ Basic windows PE file dependency walker.
 
 Output from recursion depth of 1:
 
+```
 asm-calculator.exe:
         SHLWAPI.dll:
                 StrToIntA
@@ -13,9 +14,11 @@ asm-calculator.exe:
                 GetConsoleScreenBufferInfo
                 SetConsoleCursorPosition
                 ReadConsoleA
+```
 
 Output from recursion depth of 2:
 
+```
 asm-calculator.exe:
         SHLWAPI.dll:
                 ntdll.dll:
@@ -1817,3 +1820,4 @@ asm-calculator.exe:
                 GetConsoleScreenBufferInfo
                 SetConsoleCursorPosition
                 ReadConsoleA
+```
